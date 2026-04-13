@@ -305,6 +305,7 @@ export default function Dashboard() {
   const handleRunComplete = () => {
     qc.invalidateQueries({ queryKey: ['portfolios'] })
     qc.invalidateQueries({ queryKey: ['trades'] })
+    qc.invalidateQueries({ queryKey: ['signal-report'] })
   }
 
   if (isLoading) return (

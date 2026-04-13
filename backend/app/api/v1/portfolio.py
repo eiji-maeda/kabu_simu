@@ -151,23 +151,39 @@ async def get_signal_report(db: AsyncSession = Depends(get_db)):
     reports: list[StrategySignalReport] = []
 
     for portfolio in strategy_portfolios:
-        # 各ポートフォリオの最新 executed_at を取得
+        from datetime import timedelta
+
+        # BUY/SELL が含まれる最新セッションを優先し、なければ最新セッションを使う
+        action_q = await db.execute(
+            select(func.max(SignalLog.executed_at)).where(
+                SignalLog.portfolio_id == portfolio.id,
+                SignalLog.action.in_(["BUY", "SELL"]),
+            )
+        )
+        latest_action_at = action_q.scalar_one_or_none()
+
         latest_q = await db.execute(
             select(func.max(SignalLog.executed_at)).where(
                 SignalLog.portfolio_id == portfolio.id
             )
         )
         latest_at = latest_q.scalar_one_or_none()
+
         if latest_at is None:
             continue  # まだ実行されていない
 
-        # 最新実行時刻から ±10秒のウィンドウでログを取得（同一セッション分）
-        from datetime import timedelta
-        window_start = latest_at - timedelta(seconds=10)
+        # BUY/SELL があればその実行時刻を基準に、なければ最新セッション時刻を基準にする
+        target_at = latest_action_at if latest_action_at else latest_at
+
+        # target_at を中心に ±120秒のウィンドウで同一セッション実行回のログを取得
+        # （セッション名は US_AM 等が繰り返し使われるため時刻でフィルタ）
+        window_start = target_at - timedelta(seconds=120)
+        window_end   = target_at + timedelta(seconds=120)
         logs_q = await db.execute(
             select(SignalLog).where(
                 SignalLog.portfolio_id == portfolio.id,
                 SignalLog.executed_at >= window_start,
+                SignalLog.executed_at <= window_end,
             ).order_by(SignalLog.executed_at)
         )
         logs = logs_q.scalars().all()
@@ -197,7 +213,7 @@ async def get_signal_report(db: AsyncSession = Depends(get_db)):
             strategy_name=portfolio.strategy_name,
             portfolio_name=portfolio.theme_name or portfolio.name,
             session=session,
-            executed_at=latest_at,
+            executed_at=target_at,
             signals=signals,
             summary=SignalSummary(
                 buy=counts["BUY"],

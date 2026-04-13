@@ -311,8 +311,8 @@ async def run_strategy_session(
                 ctx = _build_context(quote, df, portfolio, pos_map.get(symbol))
                 signal = strategy.generate_signal(ctx)
 
-                # 全シグナル（HOLD含む）をログに記録
-                db.add(SignalLog(
+                # シグナルをログに記録（BUY/SELL は約定結果で上書きする可能性あり）
+                signal_log = SignalLog(
                     portfolio_id=portfolio.id,
                     session=session,
                     executed_at=datetime.now(timezone.utc),
@@ -321,10 +321,17 @@ async def run_strategy_session(
                     action=signal.action.value,
                     price=Decimal(str(quote["price"])),
                     reasoning=signal.reasoning or "",
-                ))
+                )
+                db.add(signal_log)
 
                 if signal.action != SignalAction.HOLD:
-                    await _execute_signal_db(db, portfolio, signal, quote, fx_rate)
+                    executed = await _execute_signal_db(db, portfolio, signal, quote, fx_rate)
+                    if not executed:
+                        # 数量0 or 失敗 → SKIP に変更
+                        signal_log.action = "SKIP"
+                        signal_log.reasoning = (
+                            f"未約定（数量0または現金不足）: {signal.reasoning or ''}"
+                        )
                     # positions リストをリフレッシュ
                     pos_map = {p.symbol: p for p in portfolio.positions}
 

@@ -81,11 +81,11 @@ const SYMBOL_NAMES: Record<string, string> = {
 
 function ActionBadge({ action }: { action: string }) {
   const cfg: Record<string, { label: string; bg: string; color: string; border: string }> = {
-    BUY:   { label: '▲ 買い',   bg: 'rgba(74,222,128,0.15)',  color: 'var(--positive)',      border: 'rgba(74,222,128,0.35)' },
-    SELL:  { label: '▼ 売り',   bg: 'rgba(248,113,113,0.15)', color: 'var(--negative)',      border: 'rgba(248,113,113,0.35)' },
+    BUY:   { label: '▲ 約定',   bg: 'rgba(74,222,128,0.15)',  color: 'var(--positive)',      border: 'rgba(74,222,128,0.35)' },
+    SELL:  { label: '▼ 約定',   bg: 'rgba(248,113,113,0.15)', color: 'var(--negative)',      border: 'rgba(248,113,113,0.35)' },
     HOLD:  { label: '── 様子見', bg: 'rgba(100,116,139,0.12)', color: 'var(--text-tertiary)', border: 'var(--border)' },
     ERROR: { label: '✕ エラー', bg: 'rgba(251,191,36,0.15)',  color: '#FBB024',             border: 'rgba(251,191,36,0.35)' },
-    SKIP:  { label: '― 対象外', bg: 'rgba(100,116,139,0.08)', color: 'var(--text-tertiary)', border: 'var(--border)' },
+    SKIP:  { label: '◌ 未約定', bg: 'rgba(100,116,139,0.08)', color: 'var(--text-tertiary)', border: 'var(--border)' },
   }
   const c = cfg[action] ?? { label: action, bg: 'transparent', color: 'var(--text-tertiary)', border: 'var(--border)' }
 
@@ -126,12 +126,13 @@ function StrategySection({ report }: { report: StrategySignalReport }) {
   const isTheme = sname === 'theme_follow'
   const color = PORTFOLIO_COLORS[sname] ?? '#888'
 
+  const skipCount = report.signals.filter(s => s.action === 'SKIP').length
+  const isSkipped = report.signals.length === 1 && report.signals[0].action === 'SKIP'
   const visibleSignals = showHold
     ? report.signals
-    : report.signals.filter(s => s.action !== 'HOLD' && s.action !== 'SKIP')
+    : report.signals.filter(s => s.action !== 'HOLD' && !(s.action === 'SKIP' && !isSkipped))
   const holdCount = report.signals.filter(s => s.action === 'HOLD').length
   const hasAction = report.summary.buy + report.summary.sell + report.summary.error > 0
-  const isSkipped = report.signals.length === 1 && report.signals[0].action === 'SKIP'
 
   const localTime = new Date(report.executed_at).toLocaleString('ja-JP', {
     month: '2-digit', day: '2-digit', year: '2-digit',
@@ -241,8 +242,8 @@ function StrategySection({ report }: { report: StrategySignalReport }) {
             </tbody>
           </table>
 
-          {/* 様子見トグル */}
-          {holdCount > 0 && (
+          {/* 様子見・未約定トグル */}
+          {(holdCount > 0 || skipCount > 0) && !isSkipped && (
             <button
               onClick={() => setShowHold(v => !v)}
               style={{
@@ -253,7 +254,9 @@ function StrategySection({ report }: { report: StrategySignalReport }) {
                 cursor: 'pointer',
               }}
             >
-              {showHold ? `▲ 様子見を隠す` : `▼ 様子見を表示 (${holdCount}件)`}
+              {showHold
+                ? `▲ 隠す`
+                : `▼ 様子見${holdCount > 0 ? ` (${holdCount})` : ''}${skipCount > 0 ? ` / 未約定 (${skipCount})` : ''} を表示`}
             </button>
           )}
         </>

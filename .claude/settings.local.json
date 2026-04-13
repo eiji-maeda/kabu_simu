@@ -38,7 +38,10 @@
       "Bash(curl -s \"http://localhost:8001/api/v1/portfolios/signal-report\")",
       "Bash(curl -s -X POST \"http://localhost:8001/api/v1/portfolios/run-session?session=US_AM\" -H \"Content-Type: application/json\")",
       "Bash(curl -s \"http://localhost:8001/api/v1/trades?portfolio_id=6\")",
-      "Bash(curl -s \"http://localhost:8001/api/v1/portfolios/comparison\")"
+      "Bash(curl -s \"http://localhost:8001/api/v1/portfolios/comparison\")",
+      "Bash(curl -s \"http://localhost:8001/api/v1/trades\")",
+      "Bash(curl -s \"http://localhost:8001/api/v1/trades?portfolio_id=7\")",
+      "Bash(curl -s \"http://localhost:8001/api/v1/trades?portfolio_id=8\")"
     ]
   }
 }
